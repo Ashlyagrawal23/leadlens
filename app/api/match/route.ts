@@ -1,5 +1,5 @@
 import { matchGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { NO_MATCH_MESSAGE, propertyById, shortlistForLead } from "@/lib/inventory";
 import { generateStructured } from "@/lib/llm";
 import { buildMatchUser, MATCH_SYSTEM } from "@/lib/prompts";
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: MATCH_SYSTEM,
       user: buildMatchUser(parsed, candidates),
       schema: matchResultSchema,

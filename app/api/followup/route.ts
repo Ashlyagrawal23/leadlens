@@ -1,5 +1,5 @@
 import { followUpGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { generateStructured } from "@/lib/llm";
 import { buildFollowUpUser, FOLLOW_UP_SYSTEM } from "@/lib/prompts";
 import {
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
 
     const { lead, channel } = parsed.data;
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: FOLLOW_UP_SYSTEM,
       user: buildFollowUpUser(lead, channel),
       schema: followUpResultSchema,

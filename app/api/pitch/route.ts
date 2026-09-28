@@ -1,5 +1,5 @@
 import { pitchGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { propertyById } from "@/lib/inventory";
 import { generateStructured } from "@/lib/llm";
 import { buildPitchUser, PITCH_SYSTEM } from "@/lib/prompts";
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: PITCH_SYSTEM,
       user: buildPitchUser(parsed.data.lead, property),
       schema: pitchModelSchema,

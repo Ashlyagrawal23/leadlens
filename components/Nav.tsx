@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProviderSwitch } from "@/components/ProviderSwitch";
 
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/new", label: "New lead" },
   { href: "/plan", label: "Today's plan" },
+  { href: "/insights", label: "Insights" },
 ];
 
 export function Nav() {
@@ -19,24 +21,27 @@ export function Nav() {
           <span className="font-display text-2xl leading-none text-brand-dark">LeadLens</span>
           <span className="mt-1 hidden text-sm text-muted sm:block">Which lead to work, and what to say</span>
         </Link>
-        <nav className="flex gap-1 overflow-x-auto" aria-label="Primary">
-          {LINKS.map((link) => {
-            const active =
-              link.href === "/" ? path === "/" || path.startsWith("/leads") : path.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={active ? "page" : undefined}
-                className={`rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap ${
-                  active ? "bg-brand text-white" : "text-ink hover:bg-stone-100"
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex min-w-0 items-center gap-3">
+          <ProviderSwitch />
+          <nav className="flex gap-1 overflow-x-auto" aria-label="Primary">
+            {LINKS.map((link) => {
+              const active =
+                link.href === "/" ? path === "/" || path.startsWith("/leads") : path.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap ${
+                    active ? "bg-brand text-white" : "text-ink hover:bg-stone-100"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </header>
   );

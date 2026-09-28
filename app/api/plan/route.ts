@@ -1,5 +1,5 @@
 import { planGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { isClosed } from "@/lib/leads";
 import { generateStructured, LlmError } from "@/lib/llm";
 import { buildPlanUser, PLAN_SYSTEM } from "@/lib/prompts";
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: PLAN_SYSTEM,
       user: buildPlanUser(active),
       schema: planResultSchema,
