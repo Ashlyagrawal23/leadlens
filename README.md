@@ -39,7 +39,7 @@ flowchart LR
     Follow["/api/followup"]
     LLM["lib/llm.ts"]
   end
-  Gemini[Gemini 2.5 Flash]
+  Gemini[Gemini 3.8 Flash]
   Groq[Groq gpt-oss-120b]
 
   Form --> Analyze
@@ -79,7 +79,7 @@ lib/
 
 ## How the model is called
 
-Default model: **gemini-2.5-flash** (`GEMINI_MODEL` can switch this to `gemini-2.0-flash`). SDK: `@google/genai`.
+Default model: **gemini-3.8-flash**. SDK: `@google/genai`. The brief named `gemini-2.0-flash` or `gemini-2.5-flash`. Google now returns “no longer available” for new API keys on those models and tells the caller to use `gemini-3.8-flash`. Set `GEMINI_MODEL` if you need a different id.
 
 1. `generateContent` with `responseMimeType: "application/json"` and a `responseSchema`, plus a system prompt.
 2. The text is parsed as JSON. A few safe coercions run first (round the score, lowercase `hot`/`warm`/`cold`). Zod then checks the shape.
@@ -145,7 +145,7 @@ Open [http://localhost:3000](http://localhost:3000). The inbox is already filled
 4. Environment variables:
    - `GEMINI_API_KEY` (required for live AI)
    - `GROQ_API_KEY` (optional)
-   - `GEMINI_MODEL` (optional, `gemini-2.5-flash` or `gemini-2.0-flash`)
+   - `GEMINI_MODEL` (optional, default `gemini-3.8-flash`)
 5. Deploy. Add or change env vars, then redeploy so the server picks them up.
 
 The demo leads are created in each visitor's browser, so the live URL works before anyone pastes a key. Live analysis needs the Gemini variable.

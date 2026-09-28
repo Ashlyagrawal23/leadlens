@@ -13,7 +13,9 @@ import type { z } from "zod";
  * change in this file.
  */
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+// New Gemini keys are rejected for gemini-2.0-flash and gemini-2.5-flash.
+// gemini-3.8-flash is the current model those keys are told to use.
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
 // The assignment named llama-3.3-70b-versatile. Groq has removed that model.
 // gpt-oss-120b is a current free-tier chat model that accepts JSON mode.
 // Override with GROQ_MODEL if Groq renames it again.
