@@ -58,7 +58,11 @@ export function ProviderSwitch() {
   }, []);
 
   return (
-    <div role="radiogroup" aria-label="AI provider" className="flex items-center gap-1 rounded-full border border-line p-0.5">
+    <div
+      role="radiogroup"
+      aria-label="AI provider"
+      className="flex shrink-0 items-center gap-0.5 rounded-full border border-line p-0.5 sm:gap-1"
+    >
       {OPTIONS.map((option) => {
         const status = statuses.find((item) => item.provider === option.value);
         const state = option.value === "auto" ? null : describe(status);
@@ -67,11 +71,12 @@ export function ProviderSwitch() {
           <button
             key={option.value}
             type="button"
+            data-compact
             role="radio"
             aria-checked={active}
             title={state ? `${option.hint}. Status: ${state.text}` : option.hint}
             onClick={() => saveProviderChoice(option.value)}
-            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${
+            className={`flex min-h-8 items-center gap-1 rounded-full px-2 py-1 text-xs sm:gap-1.5 sm:px-2.5 font-semibold whitespace-nowrap ${
               active ? "bg-ink text-white" : "text-ink hover:bg-stone-100"
             }`}
           >

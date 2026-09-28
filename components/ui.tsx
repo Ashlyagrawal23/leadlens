@@ -29,7 +29,7 @@ export function ScoreRing({ score, priority }: { score: number; priority: Priori
   const offset = circumference - (Math.min(100, Math.max(0, score)) / 100) * circumference;
 
   return (
-    <svg width="52" height="52" viewBox="0 0 52 52" role="img" aria-label={`Score ${score} out of 100`}>
+    <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0" role="img" aria-label={`Score ${score} out of 100`}>
       <circle cx="26" cy="26" r={radius} stroke="#e7e0d4" strokeWidth="4" fill="none" />
       <circle
         cx="26"

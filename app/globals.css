@@ -39,3 +39,33 @@ select,
 textarea {
   outline-color: var(--brand);
 }
+
+html {
+  /* Stop iOS and Android from inflating text when the phone rotates to landscape. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  /* The grey flash Android and iOS draw on tap. Buttons have their own pressed states. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Touch screens (phones, tablets). These rules sit outside Tailwind's layers,
+ * so they win over utilities like text-xs without !important.
+ */
+@media (pointer: coarse) {
+  /* iOS Safari zooms the whole page when a field under 16px gets focus. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  /* Apple asks for 44pt tap targets and Android for 48dp. 44px is the smaller of the two. */
+  button:not([data-compact]),
+  select {
+    min-height: 44px;
+  }
+}
