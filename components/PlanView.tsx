@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { FollowUpAgenda } from "@/components/FollowUpAgenda";
 import { useLeads } from "@/components/useLeads";
 import { EmptyState, ErrorBanner, primaryButton, PriorityBadge, SkeletonCards } from "@/components/ui";
 import { postJson } from "@/lib/client";
@@ -87,6 +88,8 @@ export function PlanView() {
           </ol>
         </section>
       )}
+
+      {queue.length > 0 ? <FollowUpAgenda leads={leads} /> : null}
     </div>
   );
 }

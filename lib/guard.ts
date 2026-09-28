@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { LlmError } from "@/lib/llm";
+import { LlmError, PROVIDER_PREFERENCES, type ProviderPreference } from "@/lib/llm";
 
 /**
  * Shared checks for every API route.
@@ -54,6 +54,12 @@ export function rateLimit(request: Request): NextResponse | null {
     "RATE_LIMIT",
     "Too many requests from this browser. Wait a minute and try again.",
   );
+}
+
+/** The browser sends the provider picked in the nav. Anything unexpected means "auto". */
+export function providerPreference(request: Request): ProviderPreference {
+  const value = request.headers.get("x-llm-provider")?.trim().toLowerCase();
+  return PROVIDER_PREFERENCES.find((option) => option === value) ?? "auto";
 }
 
 export async function readJson(request: Request): Promise<unknown> {

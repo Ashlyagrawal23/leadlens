@@ -1,5 +1,5 @@
 import { chatGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { generateStructured } from "@/lib/llm";
 import { buildChatUser, CHAT_SYSTEM } from "@/lib/prompts";
 import { chatRequestSchema, chatResponseSchema, chatResultSchema } from "@/lib/schemas";
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
 
     const { lead, question } = parsed.data;
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: CHAT_SYSTEM,
       user: buildChatUser(
         lead,

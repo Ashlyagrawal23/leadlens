@@ -1,5 +1,5 @@
 import { logCallGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { generateStructured } from "@/lib/llm";
 import { buildLogCallUser, LOG_CALL_SYSTEM } from "@/lib/prompts";
 import { callInsightSchema, leadSchema, logCallResponseSchema } from "@/lib/schemas";
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: LOG_CALL_SYSTEM,
       user: buildLogCallUser(parsed.data.lead, parsed.data.transcript, new Date().toISOString()),
       schema: callInsightSchema,

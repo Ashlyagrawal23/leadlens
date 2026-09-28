@@ -78,6 +78,9 @@ Scoring rubric. Integer points inside each range:
 - redFlagsPenalty (0 to -20, never positive). Examples: only browsing, refusing a budget, asking only for the lowest price, spam, or a budget that cannot buy the home they described. Use 0 when there is no red flag.
 
 hardOverride: null almost always. Set it to "cold" only for spam, abuse, or an explicit request not to be contacted. Set "hot" or "warm" only when the sum would hide a fact the rubric cannot see. hardOverrideReason explains that in one sentence, or null when hardOverride is null.
+
+JSON shape. Each scoreBreakdown entry must be an object with integer points and a one-line reason. Do not return a total score.
+{"summary":"...","intent":"Ready to buy","keyRequirements":["..."],"objections":[],"nextAction":"...","suggestedResponse":"...","scoreBreakdown":{"budgetClarity":{"points":20,"reason":"..."},"timelineUrgency":{"points":18,"reason":"..."},"requirementSpecificity":{"points":15,"reason":"..."},"engagementSignals":{"points":12,"reason":"..."},"redFlagsPenalty":{"points":0,"reason":"..."}},"hardOverride":null,"hardOverrideReason":null,"urgencyFlag":true,"urgencyReason":"..."}
 `.trim();
 
 export function buildAnalyzeUser(intake: Intake, context?: string): string {

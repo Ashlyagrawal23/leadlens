@@ -1,5 +1,5 @@
 import { analysisGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { finalizeAnalysis } from "@/lib/leads";
 import { generateStructured } from "@/lib/llm";
 import { ANALYSIS_SYSTEM, buildAnalyzeUser } from "@/lib/prompts";
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: ANALYSIS_SYSTEM,
       user: buildAnalyzeUser(parsed.data, context),
       schema: modelAnalysisSchema,

@@ -1,5 +1,5 @@
 import { briefGeminiSchema } from "@/lib/gemini-schemas";
-import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
+import { errorResponse, HttpError, providerPreference, rateLimit, readJson } from "@/lib/guard";
 import { generateStructured } from "@/lib/llm";
 import { BRIEF_SYSTEM, buildBriefUser } from "@/lib/prompts";
 import { briefRequestSchema, briefResponseSchema, briefResultSchema } from "@/lib/schemas";
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateStructured({
+      preference: providerPreference(request),
       system: BRIEF_SYSTEM,
       user: buildBriefUser(parsed.data.lead),
       schema: briefResultSchema,

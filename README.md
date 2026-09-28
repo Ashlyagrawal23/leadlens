@@ -9,7 +9,14 @@ The six leads on the dashboard are demo data, so a reviewer sees a full inbox wi
 - **Intake.** Name, location, property requirement, budget, timeline, and a free-text customer message. Zod shows inline errors. "Load sample lead" fills a Noida inquiry for a live demo.
 - **Analysis.** `/api/analyze` returns a summary, intent, requirements, objections, one next action, a WhatsApp-ready reply, a 0–100 score, hot/warm/cold, an urgency flag, and one or two reasons for the score.
 - **Grounded chat.** Each lead has a chat panel. The server puts that lead's record, analysis, notes, and history into the prompt. Quick chips cover call prep, a more assertive reply, a shorter reply, Hinglish, and a price objection. Rewritten messages have a Copy button.
-- **Prioritized inbox.** Cards sort by score by default. Filters: All / Hot / Warm / Cold. Sorts: score, newest, follow-up due. A lead opens into the full analysis.
+- **Prioritized inbox.** Cards sort by score by default. Filters: All / Hot / Warm / Cold, plus a stage filter. Sorts: score, newest, follow-up due. A search box matches name, city, phone digits, requirement, budget, and the AI summary; every word must match, so "noida 3 bhk" narrows the list. Open leads nobody has touched in 5+ days get an "Nd silent" badge. A lead opens into the full analysis.
+- **Insights page** (`/insights`). Open leads, open pipeline value (sum of the budgets `parseBudgetInr` can read), win rate, overdue follow-ups, median time to first contact, leads per stage with the average score, priority mix, top cities (Gurgaon and Gurugram count as one), and a "going cold" list. Plain arithmetic in `lib/insights.ts`, so it works with no AI quota.
+- **CSV export.** Downloads the leads currently shown on the inbox, with a parsed "Budget (INR)" column. Cells that start with `=`, `+`, `-`, or `@` are prefixed with `'` so a spreadsheet does not run them as formulas.
+- **Duplicate warning.** While you type a new lead, the form warns if the phone number (in any format) or the same name in the same city is already in the inbox, and links to it. The button changes to "Analyze anyway", so you are not blocked.
+- **Pipeline board** (`/pipeline`). One column per stage with a lead count and the sum of budgets. Drag a card to another column to change its stage. Each card also has a "Move to" menu, because drag and drop does not work with a keyboard or on most phones.
+- **Follow-up agenda and calendar export.** The plan page lists every open follow-up under Overdue / Today / Tomorrow / Next 7 days / Later. "Add to calendar (.ics)" downloads one 30-minute event per follow-up with a 15-minute reminder, for Google Calendar, Outlook, or Apple Calendar. Each event keeps the lead id as its UID, so importing again updates events instead of duplicating them. Overdue follow-ups are placed 30 minutes from now, not in the past.
+- **Backup and restore.** "Back up" saves every lead, note, and chat to a JSON file. "Restore" merges a backup by lead id: the copy edited most recently wins, so an old file never overwrites newer notes. Unreadable rows are skipped one by one and counted, and you confirm before anything changes.
+- **Provider switch.** Auto / Gemini / Groq in the header, with a status dot per provider. See "How the model is called".
 - **Today's plan, call brief, and follow-up** (my feature). See below.
 
 ### My feature: before, during, and after the call
@@ -52,8 +59,8 @@ flowchart LR
   Plan --> LLM
   Brief --> LLM
   Follow --> LLM
-  LLM --> Gemini
-  LLM -. fallback .-> Groq
+  LLM -- preferred --> Gemini
+  LLM -. fallback or preferred .-> Groq
   Analyze --> Store
   UI --> Store
 ```
@@ -70,11 +77,15 @@ lib/
   schemas.ts            Zod for the form, stored leads, and API payloads
   gemini-schemas.ts     Gemini responseSchema objects (server only)
   prompts.ts            every prompt, and why it is written that way
-  llm.ts                Gemini, one retry, then Groq
+  llm.ts                provider order, cooldowns, shared schema, repair + retry
   guard.ts              body size, JSON parse, in-memory rate limit
   storage.ts            getLeads, saveLead, updateLead, deleteLead
   seed.ts               six demo leads
   leads.ts              factor sum, score bands, overdue, sort, rule-based queue
+  insights.ts           pipeline numbers, search, duplicate check, CSV export
+  calendar.ts           follow-up agenda buckets and the .ics export
+  backup.ts             backup file format, validation, merge by newest edit
+  download.ts           save text as a file in the browser
   phone.ts              normalizePhone for wa.me
   inventory.ts          12 homes and the city/budget shortlist
 ```
@@ -83,11 +94,12 @@ lib/
 
 Default model: **gemini-3.8-flash**. SDK: `@google/genai`. The brief named `gemini-2.0-flash` or `gemini-2.5-flash`. Google now returns “no longer available” for new API keys on those models and tells the caller to use `gemini-3.8-flash`. Set `GEMINI_MODEL` if you need a different id.
 
-1. `generateContent` with `responseMimeType: "application/json"` and a `responseSchema`, plus a system prompt.
-2. The text is parsed as JSON. A few safe coercions run first (round the score, lowercase `hot`/`warm`/`cold`). Zod then checks the shape.
-3. If Gemini errors, times out (22s), or fails Zod, **it is retried once**.
-4. If that still fails and `GROQ_API_KEY` is set, **one** Groq call runs (`openai/gpt-oss-120b` by default, override with `GROQ_MODEL`, `response_format: json_object`). The brief named `llama-3.3-70b-versatile`; Groq no longer serves that model. Groq does not accept Gemini's schema, so the same system prompt tells it to return one JSON object.
-5. On `/api/analyze`, the model returns five factor scores and does not return a total. `finalizeAnalysis` sums them, clamps the total to 0–100, and sets priority: **70–100 hot, 40–69 warm, under 40 cold**. A `hardOverride` replaces only the badge (spam or an explicit do-not-contact), not the number.
+1. **Provider order.** The switch in the header picks who answers first: **Auto** or **Gemini** (Gemini, then Groq) or **Groq** (Groq, then Gemini). The browser sends the choice as an `x-llm-provider` header. `GET /api/providers` reports which keys are set and which provider is cooling down (it never returns a key).
+2. **Same schema for both.** Gemini gets `responseMimeType: "application/json"` plus a `responseSchema`. Groq gets that same schema converted to strict `json_schema` mode, so it can no longer return `body` instead of `message` or a string where `{ points, reason }` belongs. If a Groq model rejects `json_schema`, the call falls back to `json_object` automatically.
+3. **Parse, coerce, repair, validate.** JSON is pulled out of fences or stray prose. Safe coercions run (round the score, lowercase `hot`/`warm`/`cold`). If Zod reports an array that is too long, a string that is too long, or points out of range, those are trimmed or clamped and checked again.
+4. **Retry with feedback.** If Zod still fails, the retry tells the model which fields were wrong. The first provider gets two tries, the fallback one.
+5. **Cooldown on rate limits.** A 429 is not retried on the same provider. That provider is skipped until the `retry in Ns` time Google or Groq sends (60s if none), then tried again. The error message lists every provider that was tried.
+6. On `/api/analyze`, the model returns five factor scores and does not return a total. `finalizeAnalysis` sums them, clamps the total to 0–100, and sets priority: **70–100 hot, 40–69 warm, under 40 cold**. A `hardOverride` replaces only the badge (spam or an explicit do-not-contact), not the number.
 
 Other guards:
 
@@ -127,7 +139,7 @@ Put a free Gemini key in `.env.local` ([Google AI Studio](https://aistudio.googl
 GEMINI_API_KEY=your_key_here
 ```
 
-Optional fallback:
+Optional second provider (fallback, or first choice when the header switch is set to Groq):
 
 ```bash
 GROQ_API_KEY=your_groq_key_here
@@ -164,7 +176,7 @@ The demo leads are created in each visitor's browser, so the live URL works befo
 
 ## Known limitations
 
-- **localStorage is per browser.** Nothing is shared across teammates or devices. Clearing site data deletes the pipeline.
+- **localStorage is per browser.** Nothing is shared across teammates or devices. Clearing site data deletes the pipeline unless you saved a backup file.
 - **No auth.** Anyone with the URL uses their own empty-then-seeded inbox.
 - **Free-tier rate limits and timeouts.** Gemini and Groq both throttle. The UI shows the error string from the server (rate limit, missing key, timeout). There is no queue or background job.
 - **The in-memory rate limit does not span all Vercel instances.**

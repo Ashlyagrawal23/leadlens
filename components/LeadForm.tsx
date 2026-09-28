@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useLeads } from "@/components/useLeads";
 import { ErrorBanner, fieldClass, primaryButton, secondaryButton } from "@/components/ui";
 import { postJson } from "@/lib/client";
+import { findDuplicates } from "@/lib/insights";
 import { addDaysFromNow, followUpOffsetDays, newId } from "@/lib/leads";
 import { SAMPLE_INTAKE } from "@/lib/sample";
 import { analyzeResponseSchema, intakeSchema, LIMITS } from "@/lib/schemas";
@@ -39,6 +42,8 @@ export function LeadForm() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const leads = useLeads();
+  const duplicates = useMemo(() => (leads ? findDuplicates(values, leads) : []), [leads, values]);
 
   function set<K extends keyof Intake>(key: K, value: Intake[K]) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -64,9 +69,7 @@ export function LeadForm() {
         createdAt: now,
         updatedAt: now,
         lastContactedAt: null,
-        followUpDueAt: addDaysFromNow(
-          followUpOffsetDays(parsed.data.timeline, result.analysis.urgencyFlag),
-        ),
+        followUpDueAt: addDaysFromNow(followUpOffsetDays(parsed.data.timeline, result.analysis.urgencyFlag)),
         contactLogs: [],
         callNotes: [],
         matches: [],
@@ -93,6 +96,27 @@ export function LeadForm() {
 
       {formError ? <ErrorBanner message={formError} /> : null}
 
+      {duplicates.length > 0 ? (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <p className="font-semibold">This customer may already be in your inbox.</p>
+          <ul className="mt-1 space-y-1">
+            {duplicates.slice(0, 3).map(({ lead, reason }) => (
+              <li key={lead.id}>
+                <Link href={`/leads/${lead.id}`} className="font-semibold underline">
+                  {lead.name}
+                </Link>{" "}
+                · {lead.location} · {lead.status} ·{" "}
+                {reason === "phone" ? "same phone number" : "same name in the same city"}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1">Open the existing lead to add notes, or analyze anyway to create a new one.</p>
+        </div>
+      ) : null}
+
       <div className="space-y-4 rounded-2xl border border-line bg-card p-5 shadow-sm">
         <Field label="Phone (optional, for WhatsApp)" error={errors.phone}>
           <input
@@ -103,7 +127,11 @@ export function LeadForm() {
           />
         </Field>
         <Field label="Name" error={errors.name}>
-          <input className={fieldClass} value={values.name} onChange={(event) => set("name", event.target.value)} />
+          <input
+            className={fieldClass}
+            value={values.name}
+            onChange={(event) => set("name", event.target.value)}
+          />
         </Field>
         <Field label="Location" error={errors.location}>
           <input
@@ -148,7 +176,9 @@ export function LeadForm() {
             value={values.message}
             onChange={(event) => set("message", event.target.value)}
           />
-          <p className={`mt-1 text-xs ${values.message.length > LIMITS.message ? "text-rose-700" : "text-muted"}`}>
+          <p
+            className={`mt-1 text-xs ${values.message.length > LIMITS.message ? "text-rose-700" : "text-muted"}`}
+          >
             {values.message.length}/{LIMITS.message}
           </p>
         </Field>
@@ -156,7 +186,7 @@ export function LeadForm() {
 
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={primaryButton} disabled={loading}>
-          {loading ? "Reading the lead…" : "Analyze lead"}
+          {loading ? "Reading the lead…" : duplicates.length > 0 ? "Analyze anyway" : "Analyze lead"}
         </button>
         <button
           type="button"
@@ -175,15 +205,7 @@ export function LeadForm() {
   );
 }
 
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: ReactNode;
-}) {
+function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <label className="block text-sm font-semibold">
       {label}
