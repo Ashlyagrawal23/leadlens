@@ -82,7 +82,7 @@ function LeadScreen({ id }: { id: string }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href="/" className="text-sm font-semibold text-brand">
+          <Link href="/" className="-my-3 inline-block py-3 text-sm font-semibold text-brand">
             All leads
           </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2">

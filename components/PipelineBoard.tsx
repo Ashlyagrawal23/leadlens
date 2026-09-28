@@ -46,11 +46,19 @@ export function PipelineBoard() {
     <div className="space-y-5">
       <div>
         <h1 className="font-display text-4xl text-brand-dark">Pipeline</h1>
-        <p className="mt-1 text-muted">Drag a card to change its stage, or use the menu on the card.</p>
+        <p className="mt-1 text-muted">
+          <span className="pointer-coarse:hidden">
+            Drag a card to change its stage, or use the menu on the card.
+          </span>
+          <span className="hidden pointer-coarse:inline">
+            Swipe across the stages. Use the menu on a card to move it.
+          </span>
+        </p>
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2">
-        <div className="grid min-w-[60rem] grid-cols-6 gap-2">
+      {/* Phones and tablets: one swipeable, snapping column per stage. Desktop: all six side by side. */}
+      <div className="-mx-4 snap-x snap-mandatory scroll-px-4 overflow-x-auto overscroll-x-contain px-4 pb-2 lg:mx-0 lg:snap-none lg:overflow-visible lg:px-0">
+        <div className="flex gap-2 lg:grid lg:grid-cols-6">
           {STATUSES.map((status) => {
             const inColumn = leads
               .filter((lead) => lead.status === status)
@@ -72,7 +80,7 @@ export function PipelineBoard() {
                   if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(null);
                 }}
                 onDrop={(event) => onDrop(event, status)}
-                className={`flex min-h-64 flex-col rounded-2xl border p-2 transition ${
+                className={`flex min-h-64 w-[78vw] max-w-72 shrink-0 snap-start flex-col rounded-2xl border p-2 transition sm:w-64 lg:w-auto lg:max-w-none ${
                   active ? "border-brand bg-emerald-50" : "border-line bg-stone-50"
                 }`}
               >
@@ -100,7 +108,9 @@ export function PipelineBoard() {
                         setDraggingId(null);
                         setDragOver(null);
                       }}
-                      className={`cursor-grab rounded-xl border border-line bg-card p-3 shadow-sm active:cursor-grabbing ${
+                      // relative: the sr-only label below is position:absolute. Without a positioned
+                      // ancestor it escapes the scroller and widens the page, and phones zoom out.
+                      className={`relative cursor-grab rounded-xl border border-line bg-card p-3 shadow-sm active:cursor-grabbing ${
                         draggingId === lead.id ? "opacity-50" : ""
                       }`}
                     >

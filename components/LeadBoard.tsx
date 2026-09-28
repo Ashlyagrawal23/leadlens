@@ -95,7 +95,8 @@ export function LeadBoard() {
             {leads.length} leads · {hotCount} hot
           </p>
         </div>
-        <div className="flex gap-2">
+        {/* Two per row on phones, one row from sm up. whitespace-nowrap stops "Reset demo data" breaking into three lines. */}
+        <div className="grid w-full grid-cols-2 gap-2 whitespace-nowrap sm:flex sm:w-auto">
           <button
             type="button"
             className={secondaryButton}
