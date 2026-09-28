@@ -90,6 +90,11 @@ export function deleteLead(id: string): void {
   );
 }
 
+/** Used by restore. The caller has already merged and validated the list. */
+export function replaceLeads(leads: Lead[]): void {
+  write(leads, true);
+}
+
 export function resetDemoData(): Lead[] {
   const seeded = buildSeedLeads();
   write(seeded, true);

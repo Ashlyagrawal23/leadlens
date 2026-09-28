@@ -7,6 +7,7 @@ import { ProviderSwitch } from "@/components/ProviderSwitch";
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/new", label: "New lead" },
+  { href: "/pipeline", label: "Pipeline" },
   { href: "/plan", label: "Today's plan" },
   { href: "/insights", label: "Insights" },
 ];

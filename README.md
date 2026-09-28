@@ -13,6 +13,9 @@ The six leads on the dashboard are demo data, so a reviewer sees a full inbox wi
 - **Insights page** (`/insights`). Open leads, open pipeline value (sum of the budgets `parseBudgetInr` can read), win rate, overdue follow-ups, median time to first contact, leads per stage with the average score, priority mix, top cities (Gurgaon and Gurugram count as one), and a "going cold" list. Plain arithmetic in `lib/insights.ts`, so it works with no AI quota.
 - **CSV export.** Downloads the leads currently shown on the inbox, with a parsed "Budget (INR)" column. Cells that start with `=`, `+`, `-`, or `@` are prefixed with `'` so a spreadsheet does not run them as formulas.
 - **Duplicate warning.** While you type a new lead, the form warns if the phone number (in any format) or the same name in the same city is already in the inbox, and links to it. The button changes to "Analyze anyway", so you are not blocked.
+- **Pipeline board** (`/pipeline`). One column per stage with a lead count and the sum of budgets. Drag a card to another column to change its stage. Each card also has a "Move to" menu, because drag and drop does not work with a keyboard or on most phones.
+- **Follow-up agenda and calendar export.** The plan page lists every open follow-up under Overdue / Today / Tomorrow / Next 7 days / Later. "Add to calendar (.ics)" downloads one 30-minute event per follow-up with a 15-minute reminder, for Google Calendar, Outlook, or Apple Calendar. Each event keeps the lead id as its UID, so importing again updates events instead of duplicating them. Overdue follow-ups are placed 30 minutes from now, not in the past.
+- **Backup and restore.** "Back up" saves every lead, note, and chat to a JSON file. "Restore" merges a backup by lead id: the copy edited most recently wins, so an old file never overwrites newer notes. Unreadable rows are skipped one by one and counted, and you confirm before anything changes.
 - **Provider switch.** Auto / Gemini / Groq in the header, with a status dot per provider. See "How the model is called".
 - **Today's plan, call brief, and follow-up** (my feature). See below.
 
@@ -80,6 +83,9 @@ lib/
   seed.ts               six demo leads
   leads.ts              factor sum, score bands, overdue, sort, rule-based queue
   insights.ts           pipeline numbers, search, duplicate check, CSV export
+  calendar.ts           follow-up agenda buckets and the .ics export
+  backup.ts             backup file format, validation, merge by newest edit
+  download.ts           save text as a file in the browser
   phone.ts              normalizePhone for wa.me
   inventory.ts          12 homes and the city/budget shortlist
 ```
@@ -170,7 +176,7 @@ The demo leads are created in each visitor's browser, so the live URL works befo
 
 ## Known limitations
 
-- **localStorage is per browser.** Nothing is shared across teammates or devices. Clearing site data deletes the pipeline.
+- **localStorage is per browser.** Nothing is shared across teammates or devices. Clearing site data deletes the pipeline unless you saved a backup file.
 - **No auth.** Anyone with the URL uses their own empty-then-seeded inbox.
 - **Free-tier rate limits and timeouts.** Gemini and Groq both throttle. The UI shows the error string from the server (rate limit, missing key, timeout). There is no queue or background job.
 - **The in-memory rate limit does not span all Vercel instances.**
