@@ -8,6 +8,15 @@ import { Type, type Schema } from "@google/genai";
 
 const str = (description: string): Schema => ({ type: Type.STRING, description });
 
+const factorSchema = (range: string): Schema => ({
+  type: Type.OBJECT,
+  properties: {
+    points: { type: Type.INTEGER, description: range },
+    reason: str("One line citing evidence from the lead."),
+  },
+  required: ["points", "reason"],
+});
+
 export const analysisGeminiSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -17,15 +26,32 @@ export const analysisGeminiSchema: Schema = {
     objections: { type: Type.ARRAY, items: { type: Type.STRING } },
     nextAction: str("One concrete action plus when to do it."),
     suggestedResponse: str("WhatsApp-ready message to the customer."),
-    score: { type: Type.INTEGER, description: "Integer from 0 to 100 using the rubric." },
-    priority: { type: Type.STRING, enum: ["hot", "warm", "cold"] },
+    scoreBreakdown: {
+      type: Type.OBJECT,
+      properties: {
+        budgetClarity: factorSchema("0 to 25"),
+        timelineUrgency: factorSchema("0 to 25"),
+        requirementSpecificity: factorSchema("0 to 20"),
+        engagementSignals: factorSchema("0 to 20"),
+        redFlagsPenalty: factorSchema("0 to -20, never positive"),
+      },
+      required: [
+        "budgetClarity",
+        "timelineUrgency",
+        "requirementSpecificity",
+        "engagementSignals",
+        "redFlagsPenalty",
+      ],
+    },
+    hardOverride: {
+      type: Type.STRING,
+      nullable: true,
+      enum: ["hot", "warm", "cold"],
+      description: "Null unless the rubric sum would mislead.",
+    },
+    hardOverrideReason: { type: Type.STRING, nullable: true },
     urgencyFlag: { type: Type.BOOLEAN },
     urgencyReason: str("One short sentence."),
-    scoreReasoning: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "One or two short bullets.",
-    },
   },
   required: [
     "summary",
@@ -34,11 +60,11 @@ export const analysisGeminiSchema: Schema = {
     "objections",
     "nextAction",
     "suggestedResponse",
-    "score",
-    "priority",
+    "scoreBreakdown",
+    "hardOverride",
+    "hardOverrideReason",
     "urgencyFlag",
     "urgencyReason",
-    "scoreReasoning",
   ],
 };
 
@@ -108,4 +134,57 @@ export const followUpGeminiSchema: Schema = {
     message: str("The message body, adapted to the channel."),
   },
   required: ["subject", "message"],
+};
+
+export const matchGeminiSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    matches: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          propertyId: str("Must be an id from the candidates."),
+          matchScore: { type: Type.INTEGER },
+          whyItFits: str("One or two sentences."),
+          possibleConcern: str("One drawback from the candidate data."),
+        },
+        required: ["propertyId", "matchScore", "whyItFits", "possibleConcern"],
+      },
+    },
+  },
+  required: ["matches"],
+};
+
+export const pitchGeminiSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    message: str("WhatsApp text about this one property."),
+  },
+  required: ["message"],
+};
+
+export const logCallGeminiSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    callSummary: str("One or two sentences."),
+    customerSentiment: { type: Type.STRING, enum: ["positive", "neutral", "negative"] },
+    newObjections: { type: Type.ARRAY, items: { type: Type.STRING } },
+    commitments: { type: Type.ARRAY, items: { type: Type.STRING } },
+    suggestedFollowUpDate: str("ISO 8601 datetime, not in the past."),
+    suggestedNextAction: str("One concrete action."),
+    statusSuggestion: {
+      type: Type.STRING,
+      enum: ["New", "Contacted", "Site Visit", "Negotiation", "Won", "Lost"],
+    },
+  },
+  required: [
+    "callSummary",
+    "customerSentiment",
+    "newObjections",
+    "commitments",
+    "suggestedFollowUpDate",
+    "suggestedNextAction",
+    "statusSuggestion",
+  ],
 };

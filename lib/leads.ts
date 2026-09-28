@@ -1,4 +1,4 @@
-import type { Lead, PlanChannel, Priority, Timeline } from "@/lib/types";
+import type { Analysis, Lead, PlanChannel, Priority, ScoreBreakdown, Timeline } from "@/lib/types";
 
 /**
  * Rules the model does not own.
@@ -6,15 +6,90 @@ import type { Lead, PlanChannel, Priority, Timeline } from "@/lib/types";
  * Sort order, overdue, and the pre-AI daily queue are deterministic so the
  * dashboard still works when Gemini is down. The bands below are the same
  * numbers written into the scoring rubric in lib/prompts.ts.
+ *
+ * Hard override: the model may set hardOverride to hot, warm, or cold when
+ * the sum would mislead (spam, "do not contact", or a safety issue). The
+ * score is still the sum. Only the badge follows the override, and the UI
+ * shows the reason. A null override means the bands win:
+ * hot >= 70, warm 40–69, cold < 40.
  */
 
 export type LeadFilter = "all" | Priority;
 export type LeadSort = "score" | "newest" | "followup";
 
-export function priorityFromScore(score: number): Priority {
-  if (score >= 75) return "hot";
-  if (score >= 45) return "warm";
+const FACTOR_RANGE = {
+  budgetClarity: [0, 25],
+  timelineUrgency: [0, 25],
+  requirementSpecificity: [0, 20],
+  engagementSignals: [0, 20],
+  redFlagsPenalty: [-20, 0],
+} as const;
+
+function clampFactor(points: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(points)));
+}
+
+/** Sum the five factors. The model is not asked for a score, and this ignores one if it sends it. */
+export function computeScore(breakdown: ScoreBreakdown): number {
+  const sum =
+    breakdown.budgetClarity.points +
+    breakdown.timelineUrgency.points +
+    breakdown.requirementSpecificity.points +
+    breakdown.engagementSignals.points +
+    breakdown.redFlagsPenalty.points;
+  return Math.max(0, Math.min(100, Math.round(sum)));
+}
+
+export function priorityFromScore(score: number, hardOverride: Priority | null = null): Priority {
+  if (hardOverride) return hardOverride;
+  if (score >= 70) return "hot";
+  if (score >= 40) return "warm";
   return "cold";
+}
+
+/** Clamp each factor to its rubric range, then set score, priority, and the short reasons. */
+export function finalizeAnalysis(
+  input: Omit<Analysis, "score" | "priority" | "scoreReasoning">,
+): Analysis {
+  const scoreBreakdown: ScoreBreakdown = {
+    budgetClarity: {
+      ...input.scoreBreakdown.budgetClarity,
+      points: clampFactor(input.scoreBreakdown.budgetClarity.points, ...FACTOR_RANGE.budgetClarity),
+    },
+    timelineUrgency: {
+      ...input.scoreBreakdown.timelineUrgency,
+      points: clampFactor(input.scoreBreakdown.timelineUrgency.points, ...FACTOR_RANGE.timelineUrgency),
+    },
+    requirementSpecificity: {
+      ...input.scoreBreakdown.requirementSpecificity,
+      points: clampFactor(
+        input.scoreBreakdown.requirementSpecificity.points,
+        ...FACTOR_RANGE.requirementSpecificity,
+      ),
+    },
+    engagementSignals: {
+      ...input.scoreBreakdown.engagementSignals,
+      points: clampFactor(input.scoreBreakdown.engagementSignals.points, ...FACTOR_RANGE.engagementSignals),
+    },
+    redFlagsPenalty: {
+      ...input.scoreBreakdown.redFlagsPenalty,
+      points: clampFactor(input.scoreBreakdown.redFlagsPenalty.points, ...FACTOR_RANGE.redFlagsPenalty),
+    },
+  };
+  const score = computeScore(scoreBreakdown);
+  return {
+    ...input,
+    scoreBreakdown,
+    score,
+    priority: priorityFromScore(score, input.hardOverride),
+    scoreReasoning: [
+      scoreBreakdown.budgetClarity.reason,
+      scoreBreakdown.timelineUrgency.reason,
+      scoreBreakdown.requirementSpecificity.reason,
+      scoreBreakdown.engagementSignals.reason,
+      scoreBreakdown.redFlagsPenalty.reason,
+    ],
+  };
 }
 
 /** How many days out the next follow-up should land after a new lead or a logged contact. */

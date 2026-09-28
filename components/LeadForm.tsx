@@ -17,6 +17,7 @@ const EMPTY: Intake = {
   budget: "",
   timeline: "Immediate",
   message: "",
+  phone: "",
 };
 
 type FieldErrors = Partial<Record<keyof Intake, string>>;
@@ -67,6 +68,8 @@ export function LeadForm() {
           followUpOffsetDays(parsed.data.timeline, result.analysis.urgencyFlag),
         ),
         contactLogs: [],
+        callNotes: [],
+        matches: [],
         analysis: result.analysis,
         chat: [],
         analyzedBy: result.provider,
@@ -91,6 +94,14 @@ export function LeadForm() {
       {formError ? <ErrorBanner message={formError} /> : null}
 
       <div className="space-y-4 rounded-2xl border border-line bg-card p-5 shadow-sm">
+        <Field label="Phone (optional, for WhatsApp)" error={errors.phone}>
+          <input
+            className={fieldClass}
+            value={values.phone}
+            placeholder="98100 12345"
+            onChange={(event) => set("phone", event.target.value)}
+          />
+        </Field>
         <Field label="Name" error={errors.name}>
           <input className={fieldClass} value={values.name} onChange={(event) => set("name", event.target.value)} />
         </Field>

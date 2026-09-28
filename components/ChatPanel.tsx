@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CopyButton, ErrorBanner, primaryButton } from "@/components/ui";
+import { ErrorBanner, primaryButton } from "@/components/ui";
+import { WhatsAppComposer } from "@/components/WhatsAppComposer";
 import { postJson } from "@/lib/client";
 import { newId } from "@/lib/leads";
 import { chatResponseSchema } from "@/lib/schemas";
@@ -90,11 +91,12 @@ export function ChatPanel({ lead }: { lead: Lead }) {
             </div>
             {message.rewrittenMessage ? (
               <div className="mt-2 rounded-xl border border-brand/30 bg-emerald-50 p-3 text-left text-sm">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold tracking-wide text-brand-dark uppercase">Ready to send</span>
-                  <CopyButton text={message.rewrittenMessage} />
-                </div>
-                <p className="whitespace-pre-wrap">{message.rewrittenMessage}</p>
+                <p className="mb-2 text-xs font-semibold tracking-wide text-brand-dark uppercase">Ready to send</p>
+                <WhatsAppComposer
+                  key={message.rewrittenMessage}
+                  initialText={message.rewrittenMessage}
+                  phoneRaw={lead.phone}
+                />
               </div>
             ) : null}
           </div>

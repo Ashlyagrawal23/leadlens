@@ -1,4 +1,4 @@
-import { daysAgo, daysFromNow } from "@/lib/leads";
+import { daysAgo, daysFromNow, finalizeAnalysis } from "@/lib/leads";
 import type { Analysis, ContactLog, Lead } from "@/lib/types";
 
 /**
@@ -9,9 +9,9 @@ import type { Analysis, ContactLog, Lead } from "@/lib/types";
  * "seed": these analyses were not produced by Gemini.
  */
 
-/** Gives the object a typed check against Analysis while the seed stays readable. */
-function analysis(input: Analysis): Analysis {
-  return input;
+/** Fills score and priority from the factor points, same function the API uses. */
+function analysis(input: Omit<Analysis, "score" | "priority" | "scoreReasoning">): Analysis {
+  return finalizeAnalysis(input);
 }
 
 function log(id: string, channel: ContactLog["channel"], notes: string, days: number): ContactLog {
@@ -26,7 +26,7 @@ export function buildSeedLeads(): Lead[] {
   const snehaCreated = daysAgo(12, 10);
   const arjunCreated = daysAgo(15, 18);
 
-  const leads: Lead[] = [
+  const leads: Array<Omit<Lead, "phone" | "matches" | "callNotes">> = [
     {
       id: "seed-priya",
       name: "Priya Sharma",
@@ -62,14 +62,17 @@ export function buildSeedLeads(): Lead[] {
         nextAction: "Call Priya today before 6pm and lock Saturday 10:30am, with the all-in price in hand.",
         suggestedResponse:
           "Hi Priya, thank you for the clear brief. I have a ready 3 BHK shortlist in DLF Phase 2 and Phase 3 only — no under-construction options. Your budget of ₹2.4 Cr and the sanctioned HDFC loan are noted. Can we lock Saturday at 10:30am? I will bring the all-in price, including GST and parking, so you can compare it on the spot.",
-        score: 86,
-        priority: "hot",
+        scoreBreakdown: {
+          budgetClarity: { points: 23, reason: "Budget is firm at ₹2.4 Cr and the HDFC loan is sanctioned." },
+          timelineUrgency: { points: 25, reason: "Timeline is Immediate and she is moving next month." },
+          requirementSpecificity: { points: 18, reason: "3 BHK in DLF Phase 2 or 3, high floor, covered parking, ready only." },
+          engagementSignals: { points: 20, reason: "She asked for a Saturday morning visit and a GST question." },
+          redFlagsPenalty: { points: 0, reason: "No red flag in the message." },
+        },
+        hardOverride: null,
+        hardOverrideReason: null,
         urgencyFlag: true,
         urgencyReason: "She is moving next month and asked for a Saturday visit.",
-        scoreReasoning: [
-          "Budget is specific and the home loan is already sanctioned.",
-          "Timeline is immediate and she requested a site visit.",
-        ],
       }),
     },
     {
@@ -111,14 +114,17 @@ export function buildSeedLeads(): Lead[] {
         nextAction: "WhatsApp Rahul today by 7pm with tower and floor, and ask him to confirm Saturday 11:00am.",
         suggestedResponse:
           "Hi Rahul, sharing the details before your visit: Tower B, 14th floor, park-facing 3 BHK in Sector 150, possession already done, asking ₹1.75 Cr. Saturday 11:00am is held for you. Once you have spoken with your wife, reply YES and I will send the location pin.",
-        score: 81,
-        priority: "hot",
+        scoreBreakdown: {
+          budgetClarity: { points: 22, reason: "Budget is ₹1.75 Cr and the loan is sanctioned." },
+          timelineUrgency: { points: 24, reason: "He can visit Saturday and will not wait past December." },
+          requirementSpecificity: { points: 16, reason: "3 BHK, Sector 150, park-facing, ready possession." },
+          engagementSignals: { points: 19, reason: "He asked for tower and floor on WhatsApp before the visit." },
+          redFlagsPenalty: { points: 0, reason: "Wife's confirmation is a delay, not a red flag." },
+        },
+        hardOverride: null,
+        hardOverrideReason: null,
         urgencyFlag: true,
         urgencyReason: "Visit depends on a confirmation tonight and possession is time-bound.",
-        scoreReasoning: [
-          "Loan, budget, configuration, and a visit window are all specific.",
-          "The only open loop is his wife's confirmation, which is due tonight.",
-        ],
       }),
     },
     {
@@ -162,14 +168,17 @@ export function buildSeedLeads(): Lead[] {
         nextAction: "Book the Brigade visit for this weekend and send a one-page all-in cost comparison against Prestige.",
         suggestedResponse:
           "Hi Ananya, I noted you liked the Prestige deck and found the bedroom tight. I can hold a Brigade 2 BHK visit this weekend near Hope Farm. I will send both options with an all-in figure around your ₹95 lakh budget, including any club charges, so nothing is added later.",
-        score: 64,
-        priority: "warm",
+        scoreBreakdown: {
+          budgetClarity: { points: 18, reason: "Budget is about ₹95 lakhs all inclusive, not a single locked figure." },
+          timelineUrgency: { points: 16, reason: "She wants to decide in two months, timeline is 1-3 months." },
+          requirementSpecificity: { points: 16, reason: "2 BHK near Hope Farm, and she named Prestige versus Brigade." },
+          engagementSignals: { points: 14, reason: "She already toured Prestige and asked for a Brigade visit." },
+          redFlagsPenalty: { points: 0, reason: "Comparing two projects is normal, not a red flag." },
+        },
+        hardOverride: null,
+        hardOverrideReason: null,
         urgencyFlag: false,
         urgencyReason: "She wants a weekend visit, but the buying decision is still one to two months out.",
-        scoreReasoning: [
-          "Budget and location are clear, and she has already done one site visit.",
-          "She is still comparing two projects, so this is not a same-week close.",
-        ],
       }),
     },
     {
@@ -214,14 +223,17 @@ export function buildSeedLeads(): Lead[] {
         nextAction: "Email a one-page yield comparison by tomorrow 11am, using only rent you can support.",
         suggestedResponse:
           "Hi Vikram, I will email a written breakdown for the Andheri East 1 BHK: price, extra charges, and a rent figure I can support, set next to your ₹1.1–1.3 Cr budget. I will not guess a yield. If it is not close to the 4.5% Thane option, I will say so plainly. I will also keep this on email, and I will not call after 8pm.",
-        score: 52,
-        priority: "warm",
+        scoreBreakdown: {
+          budgetClarity: { points: 16, reason: "Budget is a band, ₹1.1–1.3 Cr, not one figure." },
+          timelineUrgency: { points: 10, reason: "Timeline is 3-6 months and he said he will wait." },
+          requirementSpecificity: { points: 14, reason: "1 BHK in Andheri East, for rent, near the metro." },
+          engagementSignals: { points: 12, reason: "He asked for a written price and rent breakdown." },
+          redFlagsPenalty: { points: 0, reason: "Yield comparison is a negotiation point, not spam." },
+        },
+        hardOverride: null,
+        hardOverrideReason: null,
         urgencyFlag: false,
         urgencyReason: "He asked for a written breakdown, but his timeline is 3–6 months and he is willing to wait.",
-        scoreReasoning: [
-          "Budget band and investment goal are specific.",
-          "He is benchmarking another city and is comfortable delaying.",
-        ],
       }),
     },
     {
@@ -250,14 +262,17 @@ export function buildSeedLeads(): Lead[] {
         nextAction: "Send one honest WhatsApp tomorrow morning: a 3 BHK in Hinjewadi is above ₹50 lakhs, and ask if a higher budget or a smaller home is acceptable.",
         suggestedResponse:
           "Hi Sneha, thanks for writing. A 3 BHK in Hinjewadi is not available under ₹50 lakhs in the projects I cover, so I do not want to send options that miss your budget. If a 2 BHK or a higher budget could work, tell me and I will send two real choices. If not, I will check back closer to next year as you mentioned.",
-        score: 26,
-        priority: "cold",
+        scoreBreakdown: {
+          budgetClarity: { points: 8, reason: "Under ₹50 lakhs is specific but unrealistic for a 3 BHK in Hinjewadi." },
+          timelineUrgency: { points: 4, reason: "Timeline is 6+ months and she may look next year." },
+          requirementSpecificity: { points: 6, reason: "Maybe a 3 BHK somewhere nice in Hinjewadi." },
+          engagementSignals: { points: 8, reason: "She asked to be sent options only if they are under ₹50 lakhs." },
+          redFlagsPenalty: { points: 0, reason: "Low intent, but not spam." },
+        },
+        hardOverride: null,
+        hardOverrideReason: null,
         urgencyFlag: false,
         urgencyReason: "No near-term deadline mentioned. She said she may look next year.",
-        scoreReasoning: [
-          "The budget is specific but unrealistic for a 3 BHK in Hinjewadi.",
-          "The message has no visit, loan, or decision date.",
-        ],
       }),
     },
     {
@@ -292,17 +307,34 @@ export function buildSeedLeads(): Lead[] {
         nextAction: "One short WhatsApp next week asking for a budget ceiling. Stop if he does not reply.",
         suggestedResponse:
           "Hi Arjun, I sent two Gachibowli options earlier. To avoid flooding you with the wrong prices, what is the maximum you want to spend for a 2 or 3 BHK? If you are only collecting prices for later, tell me and I will pause here.",
-        score: 22,
-        priority: "cold",
+        scoreBreakdown: {
+          budgetClarity: { points: 2, reason: "Budget was not mentioned." },
+          timelineUrgency: { points: 2, reason: "Timeline is Just exploring." },
+          requirementSpecificity: { points: 6, reason: "2 or 3 BHK in Gachibowli, nothing more specific." },
+          engagementSignals: { points: 6, reason: "The message is one line asking for the cheapest price." },
+          redFlagsPenalty: { points: -8, reason: "Price-only ask with no budget is a red flag." },
+        },
+        hardOverride: null,
+        hardOverrideReason: null,
         urgencyFlag: false,
         urgencyReason: "No near-term deadline mentioned.",
-        scoreReasoning: [
-          "Budget and timeline were not mentioned.",
-          "The message asks for the cheapest price and nothing else.",
-        ],
       }),
     },
   ];
 
-  return leads;
+  const phones: Record<string, string> = {
+    "seed-priya": "9811122334",
+    "seed-rahul": "+91 98765 11111",
+    "seed-ananya": "",
+    "seed-vikram": "98200-12345",
+    "seed-sneha": "",
+    "seed-arjun": "9000012345",
+  };
+
+  return leads.map((lead) => ({
+    ...lead,
+    phone: phones[lead.id] ?? "",
+    matches: [],
+    callNotes: [],
+  }));
 }

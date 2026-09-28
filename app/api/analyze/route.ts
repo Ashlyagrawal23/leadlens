@@ -1,9 +1,9 @@
 import { analysisGeminiSchema } from "@/lib/gemini-schemas";
 import { errorResponse, HttpError, rateLimit, readJson } from "@/lib/guard";
-import { priorityFromScore } from "@/lib/leads";
+import { finalizeAnalysis } from "@/lib/leads";
 import { generateStructured } from "@/lib/llm";
 import { ANALYSIS_SYSTEM, buildAnalyzeUser } from "@/lib/prompts";
-import { analysisSchema, analyzeResponseSchema, intakeSchema } from "@/lib/schemas";
+import { analysisSchema, analyzeResponseSchema, intakeSchema, modelAnalysisSchema } from "@/lib/schemas";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -13,8 +13,9 @@ export const maxDuration = 60;
  * The browser saves the lead only after this succeeds, so the list never
  * shows a card from a failed request.
  *
- * priorityFromScore overwrites the model's priority label so the badge
- * always matches the rubric (hot at 75+, warm at 45+, otherwise cold).
+ * The model returns five factor scores. finalizeAnalysis adds them, clamps
+ * the total to 0–100, and sets hot / warm / cold. A hardOverride, if the
+ * model set one, replaces only the badge.
  */
 export async function POST(request: Request) {
   const limited = rateLimit(request);
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await readJson(request);
+    const context = readContext(body);
     const parsed = intakeSchema.safeParse(body);
     if (!parsed.success) {
       const issue = parsed.error.issues[0]?.message;
@@ -34,19 +36,27 @@ export async function POST(request: Request) {
 
     const result = await generateStructured({
       system: ANALYSIS_SYSTEM,
-      user: buildAnalyzeUser(parsed.data),
-      schema: analysisSchema,
+      user: buildAnalyzeUser(parsed.data, context),
+      schema: modelAnalysisSchema,
       geminiSchema: analysisGeminiSchema,
     });
 
-    const analysis = {
-      ...result.data,
-      priority: priorityFromScore(result.data.score),
-      scoreReasoning: result.data.scoreReasoning.slice(0, 2),
-    };
+    const analysis = analysisSchema.parse(
+      finalizeAnalysis({
+        ...result.data,
+        hardOverride: result.data.hardOverride ?? null,
+        hardOverrideReason: result.data.hardOverrideReason?.trim() || null,
+      }),
+    );
 
     return Response.json(analyzeResponseSchema.parse({ analysis, provider: result.provider }));
   } catch (error) {
     return errorResponse(error);
   }
+}
+
+function readContext(body: unknown): string {
+  if (!body || typeof body !== "object" || !("context" in body)) return "";
+  const context = body.context;
+  return typeof context === "string" ? context.slice(0, 6000) : "";
 }

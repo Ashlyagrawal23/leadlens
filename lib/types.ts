@@ -49,7 +49,7 @@ export type AiProvider = "gemini" | "groq";
 /** Who produced the analysis. "seed" means a handwritten demo, not a live model call. */
 export type AnalysisSource = AiProvider | "seed";
 
-/** What the salesperson types into the intake form. */
+/** What the salesperson types into the intake form. Phone may be blank. */
 export interface Intake {
   name: string;
   location: string;
@@ -57,6 +57,25 @@ export interface Intake {
   budget: string;
   timeline: Timeline;
   message: string;
+  phone: string;
+}
+
+/**
+ * One rubric bucket. `points` is what the model claims for this factor.
+ * The route clamps it and the total score is the sum, not a separate model field.
+ */
+export interface ScoreFactor {
+  points: number;
+  reason: string;
+}
+
+export interface ScoreBreakdown {
+  budgetClarity: ScoreFactor;
+  timelineUrgency: ScoreFactor;
+  requirementSpecificity: ScoreFactor;
+  engagementSignals: ScoreFactor;
+  /** Zero or negative. A penalty, not a bonus. */
+  redFlagsPenalty: ScoreFactor;
 }
 
 /** Structured output of /api/analyze. Every field is shown on the lead card. */
@@ -67,11 +86,52 @@ export interface Analysis {
   objections: string[];
   nextAction: string;
   suggestedResponse: string;
+  scoreBreakdown: ScoreBreakdown;
+  /**
+   * Set only when the rubric sum would mislead.
+   * Example: the message is spam, or the customer wrote "do not contact me".
+   * Null means priority comes only from the score bands.
+   */
+  hardOverride: Priority | null;
+  hardOverrideReason: string | null;
+  /** Computed in code from scoreBreakdown. Never taken from the model. */
   score: number;
+  /** Computed in code from score, unless hardOverride is set. */
   priority: Priority;
   urgencyFlag: boolean;
   urgencyReason: string;
   scoreReasoning: string[];
+}
+
+/** A home the matcher kept after checking the id against inventory. */
+export interface PropertyMatch {
+  propertyId: string;
+  matchScore: number;
+  whyItFits: string;
+  possibleConcern: string;
+}
+
+export const SENTIMENTS = ["positive", "neutral", "negative"] as const;
+
+export type Sentiment = (typeof SENTIMENTS)[number];
+
+/** What /api/logcall returns. Nothing here is saved until the salesperson confirms. */
+export interface CallInsight {
+  callSummary: string;
+  customerSentiment: Sentiment;
+  newObjections: string[];
+  commitments: string[];
+  suggestedFollowUpDate: string;
+  suggestedNextAction: string;
+  statusSuggestion: LeadStatus;
+}
+
+/** A confirmed voice or typed call note. */
+export interface CallNote {
+  id: string;
+  transcript: string;
+  contactedAt: string;
+  result: CallInsight;
 }
 
 export interface ChatMessage {
@@ -98,12 +158,16 @@ export interface Lead {
   budget: string;
   timeline: Timeline;
   message: string;
+  /** Raw phone as typed. Empty string means WhatsApp stays disabled. */
+  phone: string;
   status: LeadStatus;
   createdAt: string;
   updatedAt: string;
   lastContactedAt: string | null;
   followUpDueAt: string | null;
   contactLogs: ContactLog[];
+  callNotes: CallNote[];
+  matches: PropertyMatch[];
   analysis: Analysis | null;
   chat: ChatMessage[];
   analyzedBy: AnalysisSource | null;

@@ -63,7 +63,7 @@ The browser never sees `GEMINI_API_KEY`. It sends the lead JSON to an API route.
 ```
 app/
   (pages)/              dashboard, /new, /plan, /leads/[id]
-  api/analyze|chat|plan|brief|followup/route.ts
+  api/analyze|chat|plan|brief|followup|match|pitch|logcall/route.ts
 components/             UI only. No model calls except through fetch.
 lib/
   types.ts              the nouns: Lead, Analysis, chat, plan
@@ -74,7 +74,9 @@ lib/
   guard.ts              body size, JSON parse, in-memory rate limit
   storage.ts            getLeads, saveLead, updateLead, deleteLead
   seed.ts               six demo leads
-  leads.ts              score bands, overdue, sort, rule-based queue
+  leads.ts              factor sum, score bands, overdue, sort, rule-based queue
+  phone.ts              normalizePhone for wa.me
+  inventory.ts          12 homes and the city/budget shortlist
 ```
 
 ## How the model is called
@@ -85,7 +87,7 @@ Default model: **gemini-3.8-flash**. SDK: `@google/genai`. The brief named `gemi
 2. The text is parsed as JSON. A few safe coercions run first (round the score, lowercase `hot`/`warm`/`cold`). Zod then checks the shape.
 3. If Gemini errors, times out (22s), or fails Zod, **it is retried once**.
 4. If that still fails and `GROQ_API_KEY` is set, **one** Groq call runs (`openai/gpt-oss-120b` by default, override with `GROQ_MODEL`, `response_format: json_object`). The brief named `llama-3.3-70b-versatile`; Groq no longer serves that model. Groq does not accept Gemini's schema, so the same system prompt tells it to return one JSON object.
-5. On `/api/analyze`, the server then sets priority from the score: **75–100 hot, 45–74 warm, 0–44 cold**. The prompt uses the same bands. The badge cannot drift from the number.
+5. On `/api/analyze`, the model returns five factor scores and does not return a total. `finalizeAnalysis` sums them, clamps the total to 0–100, and sets priority: **70–100 hot, 40–69 warm, under 40 cold**. A `hardOverride` replaces only the badge (spam or an explicit do-not-contact), not the number.
 
 Other guards:
 
@@ -96,19 +98,19 @@ Other guards:
 
 ## How the score is calculated
 
-The model starts at 0 and adds:
+The model does not pick the total. It returns one reason and a point value for each factor. The server clamps each factor, adds them, and clamps the sum to 0–100.
 
-| Piece | Points |
-| --- | --- |
-| Budget clarity and realism | 0–25 |
-| Timeline urgency | 0–25 |
-| Specificity of requirements | 0–20 |
-| Engagement in the message | 0–20 |
-| Red flags | subtract 0–20, floor at 0 |
+| Piece | Points | Why it is in the rubric |
+| --- | --- | --- |
+| Budget clarity | 0–25 | A visit cannot be planned around "flexible". |
+| Timeline urgency | 0–25 | Immediate buyers should outrank people who are only looking. |
+| Requirement specificity | 0–20 | A locality and a configuration are easier to match than "a nice flat". |
+| Engagement | 0–20 | A long, specific message is a stronger signal than a one-line price ask. |
+| Red flags | 0 to −20 | Spam, abuse, or a budget far below the market should pull the score down. |
 
-`scoreReasoning` is one or two bullets so the salesperson can see why. The raw customer message stays on the lead page so they can check the model did not invent a fact. Missing facts should be written as **not mentioned**.
+Hot is 70 or above, warm is 40–69, cold is under 40. The lead page shows each bar under **Why this score?**. The raw customer message stays on the page so a reason can be checked. Missing facts should be written as **not mentioned**.
 
-Demo scores (handwritten, not from the API): Priya 86 hot, Rahul 81 hot, Ananya 64 warm, Vikram 52 warm, Sneha 26 cold, Arjun 22 cold.
+Demo scores (handwritten sums, not from the API): Priya 86 hot, Rahul 81 hot, Ananya 64 warm, Vikram 52 warm, Sneha 26 cold, Arjun 8 cold. Ananya and Sneha have no phone, so WhatsApp stays disabled. Sneha's budget is under the Pune inventory, so matching returns an empty list.
 
 ## Run locally
 

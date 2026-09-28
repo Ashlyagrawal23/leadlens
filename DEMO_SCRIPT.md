@@ -20,7 +20,7 @@ Open **New lead**. Click **Load sample lead**. Submit.
 
 When the detail page opens, point in this order: priority and score, the two-sentence summary, the green **Next action** box, requirements, the suggested WhatsApp reply, and **Why this score**.
 
-> "The score is a rubric, not a vibe. Budget clarity, timeline, how specific they were, and how engaged the message is. Red flags subtract. Hot starts at 75. The model is told not to invent facts, and the original message is still here if I need to check."
+> "The score is a rubric, not a vibe. Open Why this score. Budget, timeline, how specific they were, and how engaged the message is. Red flags subtract. The server adds those numbers. Hot starts at 70. The model is told not to invent facts, and the original message is still here if I need to check."
 
 Open the customer message disclosure for one second, then close it.
 

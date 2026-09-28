@@ -14,7 +14,9 @@ import type { Lead } from "@/lib/types";
  * then the client snapshot is whatever is saved in this browser.
  */
 
-const STORAGE_KEY = "leadlens.leads.v1";
+// v2 adds phone, score breakdown, matches, and call notes.
+// v1 rows are left in the browser and ignored, so old shapes cannot crash the page.
+const STORAGE_KEY = "leadlens.leads.v2";
 const CHANGE_EVENT = "leadlens-change";
 
 function canUseStorage(): boolean {

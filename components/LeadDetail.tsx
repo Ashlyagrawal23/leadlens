@@ -5,20 +5,25 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChatPanel } from "@/components/ChatPanel";
 import { LeadActions } from "@/components/LeadActions";
+import { MatchPanel } from "@/components/MatchPanel";
+import { ScorePanel } from "@/components/ScorePanel";
 import { useLeads } from "@/components/useLeads";
+import { VoiceCall } from "@/components/VoiceCall";
+import { WhatsAppComposer } from "@/components/WhatsAppComposer";
 import {
-  CopyButton,
   EmptyState,
   ErrorBanner,
   PriorityBadge,
   ScoreRing,
+  fieldClass,
   secondaryButton,
   SkeletonCards,
 } from "@/components/ui";
 import { postJson } from "@/lib/client";
-import { dueLabel, isOverdue } from "@/lib/leads";
+import { dueLabel, formatWhen, isOverdue } from "@/lib/leads";
 import { analyzeResponseSchema, intakeSchema } from "@/lib/schemas";
 import { deleteLead, updateLead } from "@/lib/storage";
+import type { Lead } from "@/lib/types";
 
 export function LeadDetail({ id }: { id: string }) {
   const leads = useLeads();
@@ -58,8 +63,13 @@ function LeadScreen({ id }: { id: string }) {
         budget: lead.budget,
         timeline: lead.timeline,
         message: lead.message,
+        phone: lead.phone,
       });
-      const result = await postJson("/api/analyze", intake, analyzeResponseSchema);
+      const context = [
+        ...lead.callNotes.slice(-3).map((note) => `Call: ${note.result.callSummary}`),
+        ...lead.matches.map((match) => `Match ${match.propertyId}: ${match.whyItFits}`),
+      ].join("\n");
+      const result = await postJson("/api/analyze", { ...intake, context }, analyzeResponseSchema);
       updateLead(lead.id, { analysis: result.analysis, analyzedBy: result.provider });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Re-analysis failed. Please try again.");
@@ -149,21 +159,15 @@ function LeadScreen({ id }: { id: string }) {
               </div>
 
               <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Suggested response</h2>
-                  <CopyButton text={analysis.suggestedResponse} />
-                </div>
-                <p className="rounded-xl bg-stone-50 px-3 py-2 text-sm whitespace-pre-wrap">{analysis.suggestedResponse}</p>
+                <h2 className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Suggested response</h2>
+                <WhatsAppComposer
+                  key={analysis.suggestedResponse}
+                  initialText={analysis.suggestedResponse}
+                  phoneRaw={lead.phone}
+                />
               </div>
 
-              <div>
-                <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">Why this score</h2>
-                <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
-                  {analysis.scoreReasoning.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
+              <ScorePanel analysis={analysis} />
 
               <details className="text-sm">
                 <summary className="cursor-pointer font-semibold">Customer message</summary>
@@ -177,11 +181,64 @@ function LeadScreen({ id }: { id: string }) {
             <EmptyState title="No analysis yet" body="Use Re-analyze to score this lead." />
           )}
 
+          <label className="block rounded-2xl border border-line bg-card p-4 text-sm font-semibold shadow-sm">
+            Phone
+            <input
+              className={fieldClass}
+              defaultValue={lead.phone}
+              key={lead.phone}
+              placeholder="98100 12345"
+              onBlur={(event) => {
+                const phone = event.target.value.trim();
+                if (phone !== lead.phone) updateLead(lead.id, { phone });
+              }}
+            />
+            <span className="mt-1 block font-normal text-muted">Used only for the WhatsApp buttons on this page.</span>
+          </label>
+
+          <MatchPanel lead={lead} />
+          <VoiceCall lead={lead} />
+          <ContactTimeline lead={lead} />
           <LeadActions lead={lead} />
         </div>
         <ChatPanel lead={lead} />
       </div>
     </div>
+  );
+}
+
+function ContactTimeline({ lead }: { lead: Lead }) {
+  const events = [
+    ...lead.callNotes.map((note) => ({
+      id: note.id,
+      at: note.contactedAt,
+      title: "Call",
+      body: note.result.callSummary,
+    })),
+    ...lead.contactLogs.map((log) => ({
+      id: log.id,
+      at: log.contactedAt,
+      title: log.channel,
+      body: log.notes || "No notes",
+    })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
+
+  if (events.length === 0) return null;
+
+  return (
+    <section className="rounded-2xl border border-line bg-card p-4 shadow-sm">
+      <h2 className="font-semibold">Past contacts</h2>
+      <ol className="mt-3 space-y-3">
+        {events.map((event) => (
+          <li key={event.id} className="border-l-2 border-brand pl-3">
+            <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+              {event.title} · {formatWhen(event.at)}
+            </p>
+            <p className="text-sm">{event.body}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

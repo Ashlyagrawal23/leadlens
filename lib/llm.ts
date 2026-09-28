@@ -55,7 +55,19 @@ function coerceModelJson(value: unknown): unknown {
 
   const record: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value)) {
-    record[key] = coerceModelJson(child);
+    let next = coerceModelJson(child);
+    // The rubric says this bucket is a penalty. A model that sends +10 meant -10.
+    if (
+      key === "redFlagsPenalty" &&
+      next &&
+      typeof next === "object" &&
+      "points" in next &&
+      typeof next.points === "number" &&
+      next.points > 0
+    ) {
+      next = { ...next, points: -Math.round(next.points) };
+    }
+    record[key] = next;
   }
 
   if (typeof record.score === "number") record.score = Math.round(record.score);
@@ -64,9 +76,24 @@ function coerceModelJson(value: unknown): unknown {
     if (!Number.isNaN(parsed)) record.score = Math.round(parsed);
   }
   if (typeof record.priority === "string") record.priority = record.priority.toLowerCase();
+  if (typeof record.points === "number") record.points = Math.round(record.points);
+  if (typeof record.matchScore === "number") record.matchScore = Math.round(record.matchScore);
+  if (record.hardOverride === "" || record.hardOverride === "none") record.hardOverride = null;
+  if (typeof record.hardOverride === "string") record.hardOverride = record.hardOverride.toLowerCase();
+  if (typeof record.customerSentiment === "string") {
+    record.customerSentiment = record.customerSentiment.toLowerCase();
+  }
   if (typeof record.channel === "string") record.channel = record.channel.toLowerCase();
   if (record.rewrittenMessage === "") record.rewrittenMessage = null;
   if (record.subject === "") record.subject = null;
+  // Groq has no response schema. Follow-up drafts often land in "body" instead of "message".
+  if (
+    (typeof record.message !== "string" || record.message.trim() === "") &&
+    typeof record.body === "string" &&
+    record.body.trim()
+  ) {
+    record.message = record.body;
+  }
   return record;
 }
 

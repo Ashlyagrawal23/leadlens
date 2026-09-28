@@ -7,10 +7,14 @@ import {
   STATUSES,
   TIMELINES,
   type Analysis,
+  type CallInsight,
+  type CallNote,
   type ChatMessage,
   type ContactLog,
   type Intake,
   type Lead,
+  type PropertyMatch,
+  type ScoreBreakdown,
 } from "@/lib/types";
 
 /**
@@ -46,9 +50,37 @@ export const intakeSchema: z.ZodType<Intake> = z.object({
     .trim()
     .min(1, "Customer message is required")
     .max(LIMITS.message, "Keep the message under 4000 characters"),
+  phone: z.string().trim().max(20, "Phone is too long"),
 });
 
 const bullet = z.string().trim().min(1).max(300);
+
+const factor = (min: number, max: number) =>
+  z.object({
+    points: z.number().int().min(min).max(max),
+    reason: z.string().trim().min(1).max(300),
+  });
+
+/** What the model is allowed to return. Score and priority are not in here. */
+export const modelAnalysisSchema = z.object({
+  summary: z.string().trim().min(1).max(600),
+  intent: z.string().trim().min(1).max(80),
+  keyRequirements: z.array(bullet).max(8),
+  objections: z.array(bullet).max(8),
+  nextAction: z.string().trim().min(1).max(400),
+  suggestedResponse: z.string().trim().min(1).max(1200),
+  scoreBreakdown: z.object({
+    budgetClarity: factor(0, 25),
+    timelineUrgency: factor(0, 25),
+    requirementSpecificity: factor(0, 20),
+    engagementSignals: factor(0, 20),
+    redFlagsPenalty: factor(-20, 0),
+  }) satisfies z.ZodType<ScoreBreakdown>,
+  hardOverride: z.enum(PRIORITIES).nullable().optional(),
+  hardOverrideReason: z.string().trim().max(240).nullable().optional(),
+  urgencyFlag: z.boolean(),
+  urgencyReason: z.string().trim().min(1).max(240),
+});
 
 export const analysisSchema: z.ZodType<Analysis> = z.object({
   summary: z.string().trim().min(1).max(600),
@@ -57,13 +89,44 @@ export const analysisSchema: z.ZodType<Analysis> = z.object({
   objections: z.array(bullet).max(8),
   nextAction: z.string().trim().min(1).max(400),
   suggestedResponse: z.string().trim().min(1).max(1200),
+  scoreBreakdown: z.object({
+    budgetClarity: factor(0, 25),
+    timelineUrgency: factor(0, 25),
+    requirementSpecificity: factor(0, 20),
+    engagementSignals: factor(0, 20),
+    redFlagsPenalty: factor(-20, 0),
+  }),
+  hardOverride: z.enum(PRIORITIES).nullable(),
+  hardOverrideReason: z.string().max(240).nullable(),
   score: z.number().int().min(0).max(100),
   priority: z.enum(PRIORITIES),
   urgencyFlag: z.boolean(),
   urgencyReason: z.string().trim().min(1).max(240),
-  // The prompt asks for 1–2 bullets. Max 4 lets a slightly chatty model
-  // through; the analyze route keeps only the first two.
-  scoreReasoning: z.array(bullet).min(1).max(4),
+  scoreReasoning: z.array(bullet).min(1).max(5),
+});
+
+export const propertyMatchSchema: z.ZodType<PropertyMatch> = z.object({
+  propertyId: z.string().min(1).max(40),
+  matchScore: z.number().int().min(0).max(100),
+  whyItFits: z.string().trim().min(1).max(400),
+  possibleConcern: z.string().trim().min(1).max(300),
+});
+
+export const callInsightSchema: z.ZodType<CallInsight> = z.object({
+  callSummary: z.string().trim().min(1).max(500),
+  customerSentiment: z.enum(["positive", "neutral", "negative"]),
+  newObjections: z.array(bullet).max(6),
+  commitments: z.array(bullet).max(6),
+  suggestedFollowUpDate: z.string().refine((value) => !Number.isNaN(Date.parse(value)), "Date must be ISO"),
+  suggestedNextAction: z.string().trim().min(1).max(400),
+  statusSuggestion: z.enum(STATUSES),
+});
+
+export const callNoteSchema: z.ZodType<CallNote> = z.object({
+  id: z.string().min(1).max(80),
+  transcript: z.string().min(1).max(LIMITS.notes),
+  contactedAt: z.string().min(1),
+  result: callInsightSchema,
 });
 
 export const chatMessageSchema: z.ZodType<ChatMessage> = z.object({
@@ -89,12 +152,15 @@ export const leadSchema: z.ZodType<Lead> = z.object({
   budget: z.string().min(1).max(LIMITS.budget),
   timeline: z.enum(TIMELINES),
   message: z.string().min(1).max(LIMITS.message),
+  phone: z.string().max(20),
   status: z.enum(STATUSES),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
   lastContactedAt: z.string().nullable(),
   followUpDueAt: z.string().nullable(),
   contactLogs: z.array(contactLogSchema).max(50),
+  callNotes: z.array(callNoteSchema).max(30),
+  matches: z.array(propertyMatchSchema).max(3),
   analysis: analysisSchema.nullable(),
   chat: z.array(chatMessageSchema).max(40),
   analyzedBy: z.enum(["gemini", "groq", "seed"]).nullable(),
@@ -188,6 +254,26 @@ export const briefResponseSchema = z.object({
   talkingPoints: z.array(z.string()),
   objections: z.array(z.object({ objection: z.string(), rebuttal: z.string() })),
   ask: z.string(),
+  provider: providerSchema,
+});
+
+export const matchResultSchema = z.object({
+  matches: z.array(propertyMatchSchema).min(1).max(3),
+});
+
+export const matchResponseSchema = z.object({
+  matches: z.array(propertyMatchSchema).max(3),
+  message: z.string().nullable(),
+  provider: providerSchema.nullable(),
+});
+
+export const pitchResponseSchema = z.object({
+  message: z.string().min(1),
+  provider: providerSchema,
+});
+
+export const logCallResponseSchema = z.object({
+  insight: callInsightSchema,
   provider: providerSchema,
 });
 

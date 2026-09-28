@@ -126,7 +126,7 @@ export function LeadBoard() {
                         {lead.analysis?.summary ?? "Not analyzed yet."}
                       </p>
                       <p className="mt-2 text-sm text-muted">
-                        {lead.status} · {lead.timeline} · {dueLabel(lead.followUpDueAt)}
+                        {lead.status} · {lead.timeline} · Follow-up due: {dueLabel(lead.followUpDueAt)}
                       </p>
                     </div>
                     {lead.analysis && priority ? (
